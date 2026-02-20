@@ -7,11 +7,11 @@ description.pl = "Profesjonalny system zarzadzania delegacjami dla kontraktow"
 
 version = "1.0~ynh1"
 
-maintainers = ["your-username"]
+maintainers = ["Chudy34"]
 
 [upstream]
 license = "MIT"
-admindoc = "https://github.com/your-org/delegacje/wiki"
+admindoc = "https://github.com/Chudy34/delegacje"
 
 [integration]
 yunohost = ">= 11.2"

@@ -2,8 +2,8 @@
 # YunoHost backup script for Delegacje SaaS
 # shellcheck disable=SC2034
 
-source _common.sh
 source /usr/share/yunohost/helpers
+source _common.sh
 
 # ── Backup PostgreSQL database ────────────────
 ynh_psql_dump_db --database="$app" > db.sql

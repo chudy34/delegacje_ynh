@@ -1,5 +1,9 @@
 #!/bin/bash
 # Common variables for Delegacje SaaS YunoHost scripts
+# UWAGA: helpers muszą być załadowane PRZED tym plikiem!
+# W każdym skrypcie kolejność musi być:
+#   source /usr/share/yunohost/helpers
+#   source _common.sh
 
 # App identifier
 app=$YNH_APP_INSTANCE_NAME

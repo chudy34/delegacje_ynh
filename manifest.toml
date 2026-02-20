@@ -59,6 +59,13 @@ ram.runtime = "256M"
     optional = true
 
 [resources]
+    [resources.sources]
+        [resources.sources.main]
+        url = "https://github.com/Chudy34/delegacje/archive/refs/heads/main.tar.gz"
+        sha256 = "nocheck"
+        autoupdate.strategy = "latest_github_tag"
+        autoupdate.upstream = "https://github.com/Chudy34/delegacje"
+
     [resources.system_user]
 
     [resources.install_dir]

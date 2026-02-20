@@ -1,25 +1,30 @@
 #!/bin/bash
-# Common variables for Delegacje SaaS YunoHost scripts
 
-# App identifier
-app=$YNH_APP_INSTANCE_NAME
+# Helper to load settings safely
+load_app_settings() {
+    # Get basic app settings
+    install_dir=$(ynh_app_setting_get --app=$app --key=install_dir)
+    data_dir=$(ynh_app_setting_get --app=$app --key=data_dir)
+    domain=$(ynh_app_setting_get --app=$app --key=domain)
+    path=$(ynh_app_setting_get --app=$app --key=path)
 
-# Install/data paths (from manifest resources)
-install_dir=$(ynh_app_setting_get --app="$app" --key="install_dir")
-data_dir=$(ynh_app_setting_get --app="$app" --key="data_dir")
+    # Get ports
+    port_backend=$(ynh_app_setting_get --app=$app --key=port_backend)
+    port_frontend=$(ynh_app_setting_get --app=$app --key=port_frontend)
 
-# Domain and path
-domain=$(ynh_app_setting_get --app="$app" --key="domain")
-path=$(ynh_app_setting_get --app="$app" --key="path")
-path=${path%/}  # Remove trailing slash
+    # Get DB settings from resources
+    db_name=$(ynh_app_setting_get --app=$app --key=db_name)
+    db_user=$(ynh_app_setting_get --app=$app --key=db_user)
+    db_pwd=$(ynh_app_setting_get --app=$app --key=db_pwd)
 
-# Ports
-port_backend=$(ynh_app_setting_get --app="$app" --key="port_backend")
-port_frontend=$(ynh_app_setting_get --app="$app" --key="port_frontend")
+    # Get AI settings
+    ai_provider=$(ynh_app_setting_get --app=$app --key=ai_provider)
+    gemini_api_key=$(ynh_app_setting_get --app=$app --key=gemini_api_key)
+}
 
-# DB
-db_pwd=$(ynh_app_setting_get --app="$app" --key="db_pwd")
-
-# App settings
-ai_provider=$(ynh_app_setting_get --app="$app" --key="ai_provider")
-gemini_api_key=$(ynh_app_setting_get --app="$app" --key="gemini_api_key")
+# Check if paths are not empty to avoid 'chown' errors
+validate_paths() {
+    if [ -z "$install_dir" ] || [ -z "$data_dir" ]; then
+        ynh_die --message="Critical error: install_dir or data_dir is empty. Check YunoHost settings."
+    fi
+}

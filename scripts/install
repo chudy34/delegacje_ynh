@@ -1,0 +1,78 @@
+#!/bin/bash
+set -eu
+
+source /usr/share/yunohost/helpers
+
+app=$YNH_APP_INSTANCE_NAME
+
+install_dir=/var/www/$app
+port_backend=3001
+port_frontend=3000
+
+ynh_print_info --message="Installing Delegacje SaaS..."
+
+# Create user
+ynh_system_user_create --username=$app
+
+# Install Node
+ynh_package_install nodejs
+
+# Fetch source
+git clone https://github.com/chudy34/Delegacje /tmp/$app-src
+
+mkdir -p $install_dir
+cp -r /tmp/$app-src/backend/* $install_dir/
+cp -r /tmp/$app-src/frontend $install_dir/
+chown -R $app:$app $install_dir
+
+# Backend build
+cd $install_dir
+sudo -u $app npm install --include=dev
+sudo -u $app npm run build
+sudo -u $app ./node_modules/.bin/prisma generate
+
+# Frontend build
+cd $install_dir/frontend
+sudo -u $app npm install
+sudo -u $app npm run build
+
+# Create systemd services
+cat > /etc/systemd/system/$app-backend.service <<EOF
+[Unit]
+Description=Delegacje Backend
+After=network.target
+
+[Service]
+User=$app
+WorkingDirectory=$install_dir
+ExecStart=/usr/bin/node $install_dir/dist/server.js
+Restart=always
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > /etc/systemd/system/$app-frontend.service <<EOF
+[Unit]
+Description=Delegacje Frontend
+After=network.target
+
+[Service]
+User=$app
+WorkingDirectory=$install_dir/frontend
+ExecStart=/usr/bin/npx next start -p $port_frontend
+Restart=always
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable $app-backend
+systemctl enable $app-frontend
+systemctl start $app-backend
+systemctl start $app-frontend
+
+ynh_print_info --message="Installation complete"

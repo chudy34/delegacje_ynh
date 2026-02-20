@@ -1,1 +1,0 @@
-# delegacje_ynh

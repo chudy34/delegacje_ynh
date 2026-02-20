@@ -62,7 +62,7 @@ ram.runtime = "256M"
     [resources.sources]
         [resources.sources.main]
         url = "https://github.com/Chudy34/delegacje/archive/refs/heads/main.tar.gz"
-        sha256 = "nocheck"
+        sha256 = "98a35508e10e30a9b995c268a3bb320d1376dfe5d847cf31ecfd712478d66e0a"
         autoupdate.strategy = "latest_github_tag"
         autoupdate.upstream = "https://github.com/Chudy34/delegacje"
 

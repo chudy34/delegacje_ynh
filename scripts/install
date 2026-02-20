@@ -34,7 +34,7 @@ chown -R "$app:$app" "$install_dir"
 
 # ── Backend setup ────────────────────────────────────
 pushd "$install_dir/backend"
-    ynh_exec_as "$app" npm ci --only=production
+    ynh_exec_as "$app" npm install --omit=dev
     ynh_exec_as "$app" npx prisma generate
 
     # Wygeneruj .env dla backendu
@@ -61,7 +61,7 @@ popd
 
 # ── Frontend setup ───────────────────────────────────
 pushd "$install_dir/frontend"
-    ynh_exec_as "$app" npm ci
+    ynh_exec_as "$app" npm install
 
     cat > .env.production << ENVEOF
 NEXT_PUBLIC_API_URL=http://localhost:$port_backend

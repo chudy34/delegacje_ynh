@@ -22,7 +22,7 @@ gemini_api_key=$(ynh_app_setting_get --app="$app" --key="gemini_api_key")
 
 # ── Backend upgrade ──────────────────────────
 pushd "$install_dir/backend"
-    ynh_exec_as "$app" npm ci --only=production
+    ynh_exec_as "$app" npm install --omit=dev
     ynh_exec_as "$app" npx prisma generate
 
     # Update .env
@@ -48,7 +48,7 @@ popd
 
 # ── Frontend upgrade ─────────────────────────
 pushd "$install_dir/frontend"
-    ynh_exec_as "$app" npm ci
+    ynh_exec_as "$app" npm install
 
     cat > .env.production << EOF
 NEXT_PUBLIC_API_URL=https://$domain$path

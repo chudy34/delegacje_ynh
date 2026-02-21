@@ -23,7 +23,7 @@ ynh_system_user_create --username=$app
 ynh_print_info --message="Cloning source..."
 git clone https://github.com/chudy34/Delegacje /tmp/$app-src
 
-# Copy files
+# Copy files - backend goes directly into install_dir (flat structure)
 mkdir -p $install_dir
 cp -r /tmp/$app-src/backend/Dockerfile \
       /tmp/$app-src/backend/package.json \
@@ -31,6 +31,7 @@ cp -r /tmp/$app-src/backend/Dockerfile \
       /tmp/$app-src/backend/src \
       /tmp/$app-src/backend/tsconfig.json \
       $install_dir/
+# Copy frontend into subdirectory
 cp -r /tmp/$app-src/frontend $install_dir/
 rm -rf /tmp/$app-src
 
@@ -52,8 +53,8 @@ encryption_key=$(openssl rand -base64 32)
 ynh_app_setting_set --app=$app --key=jwt_secret --value=$jwt_secret
 ynh_app_setting_set --app=$app --key=encryption_key --value=$encryption_key
 
-# Create backend .env
-cat > $install_dir/backend/.env << EOF
+# Create backend .env (backend is flat in install_dir, not in a subdir)
+cat > $install_dir/.env << EOF
 NODE_ENV=production
 PORT=$port_backend
 DATABASE_URL=postgresql://${db_user}:${db_pwd}@localhost:5432/${db_name}
@@ -73,7 +74,7 @@ EOF
 
 chown -R $app:$app $install_dir $data_dir
 
-# Backend build
+# Backend build (run from install_dir where package.json is)
 ynh_print_info --message="Building backend..."
 cd $install_dir
 sudo -u $app npm install --include=dev

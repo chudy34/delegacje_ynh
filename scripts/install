@@ -54,7 +54,7 @@ ynh_app_setting_set --app=$app --key=jwt_secret --value=$jwt_secret
 ynh_app_setting_set --app=$app --key=encryption_key --value=$encryption_key
 
 # Create backend .env
-cat > $install_dir/.env << EOF
+cat > $install_dir/backend/.env << EOF
 NODE_ENV=production
 PORT=$port_backend
 DATABASE_URL=postgresql://${db_user}:${db_pwd}@localhost:5432/${db_name}
@@ -79,6 +79,10 @@ ynh_print_info --message="Building backend..."
 cd $install_dir
 sudo -u $app npm install --include=dev
 sudo -u $app npm run build
+
+# Copy static files for standalone mode
+cp -r $install_dir/frontend/.next/static $install_dir/frontend/.next/standalone/.next/static
+cp -r $install_dir/frontend/public $install_dir/frontend/.next/standalone/public
 sudo -u $app ./node_modules/.bin/prisma generate
 sudo -u $app ./node_modules/.bin/prisma migrate deploy
 
@@ -87,6 +91,10 @@ ynh_print_info --message="Building frontend..."
 cd $install_dir/frontend
 sudo -u $app npm install
 sudo -u $app npm run build
+
+# Copy static files for standalone mode
+cp -r $install_dir/frontend/.next/static $install_dir/frontend/.next/standalone/.next/static
+cp -r $install_dir/frontend/public $install_dir/frontend/.next/standalone/public
 
 # Nginx config
 ynh_add_nginx_config

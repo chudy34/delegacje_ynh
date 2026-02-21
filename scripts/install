@@ -27,7 +27,6 @@ git clone https://github.com/chudy34/Delegacje /tmp/$app-src
 mkdir -p $install_dir
 cp -r /tmp/$app-src/backend/Dockerfile \
       /tmp/$app-src/backend/package.json \
-      /tmp/$app-src/backend/package-lock.json \
       /tmp/$app-src/backend/prisma \
       /tmp/$app-src/backend/src \
       /tmp/$app-src/backend/tsconfig.json \

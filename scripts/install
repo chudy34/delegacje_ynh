@@ -4,75 +4,98 @@ set -eu
 source /usr/share/yunohost/helpers
 
 app=$YNH_APP_INSTANCE_NAME
+domain=$YNH_APP_ARG_DOMAIN
+admin=$YNH_APP_ARG_ADMIN
+ai_provider=$YNH_APP_ARG_AI_PROVIDER
+gemini_api_key=$YNH_APP_ARG_GEMINI_API_KEY
 
 install_dir=/var/www/$app
-port_backend=3001
-port_frontend=3000
+data_dir=/home/yunohost.app/$app
+port_backend=$(ynh_app_setting_get --app=$app --key=port_backend)
+port_frontend=$(ynh_app_setting_get --app=$app --key=port_frontend)
 
 ynh_print_info --message="Installing Delegacje SaaS..."
 
 # Create user
 ynh_system_user_create --username=$app
 
-# Install Node
-ynh_package_install nodejs
-
 # Fetch source
+ynh_print_info --message="Cloning source..."
 git clone https://github.com/chudy34/Delegacje /tmp/$app-src
 
+# Copy files
 mkdir -p $install_dir
-cp -r /tmp/$app-src/backend/* $install_dir/
+cp -r /tmp/$app-src/backend/Dockerfile \
+      /tmp/$app-src/backend/package.json \
+      /tmp/$app-src/backend/package-lock.json \
+      /tmp/$app-src/backend/prisma \
+      /tmp/$app-src/backend/src \
+      /tmp/$app-src/backend/tsconfig.json \
+      $install_dir/
 cp -r /tmp/$app-src/frontend $install_dir/
-chown -R $app:$app $install_dir
+rm -rf /tmp/$app-src
+
+# Create data directories
+mkdir -p $data_dir/uploads $data_dir/logs
+
+# Setup database
+db_name=$(ynh_sanitize_dbid --db_name=$app)
+db_user=$db_name
+db_pwd=$(ynh_string_random --length=30)
+ynh_app_setting_set --app=$app --key=db_name --value=$db_name
+ynh_app_setting_set --app=$app --key=db_user --value=$db_user
+ynh_app_setting_set --app=$app --key=db_pwd --value=$db_pwd
+ynh_psql_setup_db --db_user=$db_user --db_name=$db_name --db_pwd=$db_pwd
+
+# Generate secrets
+jwt_secret=$(openssl rand -base64 48)
+encryption_key=$(openssl rand -base64 32)
+ynh_app_setting_set --app=$app --key=jwt_secret --value=$jwt_secret
+ynh_app_setting_set --app=$app --key=encryption_key --value=$encryption_key
+
+# Create backend .env
+cat > $install_dir/.env << EOF
+NODE_ENV=production
+PORT=$port_backend
+DATABASE_URL=postgresql://${db_user}:${db_pwd}@localhost:5432/${db_name}
+JWT_SECRET=${jwt_secret}
+ENCRYPTION_KEY=${encryption_key}
+CORS_ORIGIN=https://${domain}
+UPLOAD_DIR=${data_dir}/uploads
+LOG_DIR=${data_dir}/logs
+AI_PROVIDER=${ai_provider}
+GEMINI_API_KEY=${gemini_api_key}
+EOF
+
+# Create frontend .env
+cat > $install_dir/frontend/.env.production << EOF
+NEXT_PUBLIC_API_URL=https://${domain}/api
+EOF
+
+chown -R $app:$app $install_dir $data_dir
 
 # Backend build
+ynh_print_info --message="Building backend..."
 cd $install_dir
 sudo -u $app npm install --include=dev
 sudo -u $app npm run build
 sudo -u $app ./node_modules/.bin/prisma generate
+sudo -u $app ./node_modules/.bin/prisma migrate deploy
 
 # Frontend build
+ynh_print_info --message="Building frontend..."
 cd $install_dir/frontend
 sudo -u $app npm install
 sudo -u $app npm run build
 
-# Create systemd services
-cat > /etc/systemd/system/$app-backend.service <<EOF
-[Unit]
-Description=Delegacje Backend
-After=network.target
+# Nginx config
+ynh_add_nginx_config
 
-[Service]
-User=$app
-WorkingDirectory=$install_dir
-ExecStart=/usr/bin/node $install_dir/dist/server.js
-Restart=always
-Environment=NODE_ENV=production
+# Systemd services
+ynh_add_systemd_config --service=$app-backend --template=backend.service
+ynh_add_systemd_config --service=$app-frontend --template=frontend.service
 
-[Install]
-WantedBy=multi-user.target
-EOF
+ynh_systemd_action --service_name=$app-backend --action=start --log_path=systemd
+ynh_systemd_action --service_name=$app-frontend --action=start --log_path=systemd
 
-cat > /etc/systemd/system/$app-frontend.service <<EOF
-[Unit]
-Description=Delegacje Frontend
-After=network.target
-
-[Service]
-User=$app
-WorkingDirectory=$install_dir/frontend
-ExecStart=/usr/bin/npx next start -p $port_frontend
-Restart=always
-Environment=NODE_ENV=production
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable $app-backend
-systemctl enable $app-frontend
-systemctl start $app-backend
-systemctl start $app-frontend
-
-ynh_print_info --message="Installation complete"
+ynh_print_info --message="Installation complete!"

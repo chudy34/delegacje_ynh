@@ -79,10 +79,6 @@ ynh_print_info --message="Building backend..."
 cd $install_dir
 sudo -u $app npm install --include=dev
 sudo -u $app npm run build
-
-# Copy static files for standalone mode
-cp -r $install_dir/frontend/.next/static $install_dir/frontend/.next/standalone/.next/static
-cp -r $install_dir/frontend/public $install_dir/frontend/.next/standalone/public
 sudo -u $app ./node_modules/.bin/prisma generate
 sudo -u $app ./node_modules/.bin/prisma migrate deploy
 
@@ -92,7 +88,7 @@ cd $install_dir/frontend
 sudo -u $app npm install
 sudo -u $app npm run build
 
-# Copy static files for standalone mode
+# Copy static files for Next.js standalone mode
 cp -r $install_dir/frontend/.next/static $install_dir/frontend/.next/standalone/.next/static
 cp -r $install_dir/frontend/public $install_dir/frontend/.next/standalone/public
 

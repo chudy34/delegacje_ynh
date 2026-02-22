@@ -1,71 +1,77 @@
 #!/bin/bash
-# YunoHost upgrade script for Delegacje SaaS
-# shellcheck disable=SC2034
+set -eu
 
 source _common.sh
 source /usr/share/yunohost/helpers
 
-# ── Stop services during upgrade ─────────────
-ynh_systemd_action --service_name="${app}-backend" --action="stop"
-ynh_systemd_action --service_name="${app}-frontend" --action="stop"
+# ── Stop services ─────────────────────────────────────────────────────────
+ynh_systemd_action --service_name="${app}-backend"  --action=stop
+ynh_systemd_action --service_name="${app}-frontend" --action=stop
 
-# ── Copy new source ──────────────────────────
-cp -r "../conf/app/." "$install_dir/"
+# ── Clone new source ──────────────────────────────────────────────────────
+ynh_print_info --message="Cloning new source..."
+ynh_exec_warn_less git clone --depth=1 https://github.com/chudy34/Delegacje /tmp/${app}-src
+
+mkdir -p "$install_dir/backend" "$install_dir/frontend"
+cp -r /tmp/${app}-src/backend/.  "$install_dir/backend/"
+cp -r /tmp/${app}-src/frontend/. "$install_dir/frontend/"
+rm -rf /tmp/${app}-src
 chown -R "$app:$app" "$install_dir"
 
-# ── Re-read settings ─────────────────────────
-jwt_secret=$(ynh_app_setting_get --app="$app" --key="jwt_secret")
-encryption_key=$(ynh_app_setting_get --app="$app" --key="encryption_key")
-db_pwd=$(ynh_app_setting_get --app="$app" --key="db_pwd")
-ai_provider=$(ynh_app_setting_get --app="$app" --key="ai_provider")
-gemini_api_key=$(ynh_app_setting_get --app="$app" --key="gemini_api_key")
-
-# ── Backend upgrade ──────────────────────────
-pushd "$install_dir/backend"
-    ynh_exec_as "$app" npm ci --only=production
-    ynh_exec_as "$app" npx prisma generate
-
-    # Update .env
-    cat > .env << EOF
+# ── Regenerate .env files ─────────────────────────────────────────────────
+cat > "$install_dir/backend/.env" << ENVEOF
 NODE_ENV=production
-PORT=$port_backend
-DATABASE_URL=postgresql://$app:$db_pwd@localhost:5432/$app
-JWT_SECRET=$jwt_secret
+PORT=${port_backend}
+DATABASE_URL=postgresql://${db_user}:${db_pwd}@localhost:5432/${db_name}
+JWT_SECRET=${jwt_secret}
 JWT_EXPIRES_IN=7d
-ENCRYPTION_KEY=$encryption_key
-CORS_ORIGIN=https://$domain$path
-AI_PROVIDER=$ai_provider
-GEMINI_API_KEY=$gemini_api_key
-UPLOAD_DIR=$data_dir/uploads
-LOG_DIR=$data_dir/logs
-EOF
+ENCRYPTION_KEY=${encryption_key}
+CORS_ORIGIN=https://${domain}
+UPLOAD_DIR=${data_dir}/uploads
+LOG_DIR=${data_dir}/logs
+AI_PROVIDER=${ai_provider}
+GEMINI_API_KEY=${gemini_api_key}
+OPENAI_API_KEY=${openai_api_key}
+ENVEOF
 
-    # Run migrations (safe to run multiple times)
-    ynh_exec_as "$app" npx prisma migrate deploy
+cat > "$install_dir/frontend/.env.production" << ENVEOF
+NEXT_PUBLIC_API_URL=http://127.0.0.1:${port_backend}
+PORT=${port_frontend}
+NODE_ENV=production
+ENVEOF
 
+chown "$app:$app" "$install_dir/backend/.env" "$install_dir/frontend/.env.production"
+
+# ── Build backend ─────────────────────────────────────────────────────────
+ynh_print_info --message="Building backend..."
+pushd "$install_dir/backend"
+    ynh_exec_as "$app" npm ci
+    ynh_exec_as "$app" npx prisma generate
     ynh_exec_as "$app" npm run build
+    ynh_exec_as "$app" npx prisma migrate deploy
 popd
 
-# ── Frontend upgrade ─────────────────────────
+# ── Build frontend ────────────────────────────────────────────────────────
+ynh_print_info --message="Building frontend..."
 pushd "$install_dir/frontend"
     ynh_exec_as "$app" npm ci
-
-    cat > .env.production << EOF
-NEXT_PUBLIC_API_URL=https://$domain$path
-PORT=$port_frontend
-NODE_ENV=production
-EOF
-
     ynh_exec_as "$app" npm run build
+    cp -r .next/static  .next/standalone/.next/static
+    cp -r public        .next/standalone/public 2>/dev/null || true
 popd
 
-# ── Update systemd & nginx ───────────────────
-ynh_add_systemd_config --service="${app}-backend" --template="backend.service"
+chown -R "$app:$app" "$install_dir"
+
+# ── Update systemd & nginx ────────────────────────────────────────────────
+ynh_add_systemd_config --service="${app}-backend"  --template="backend.service"
 ynh_add_systemd_config --service="${app}-frontend" --template="frontend.service"
 ynh_add_nginx_config
+systemctl daemon-reload
 
-# ── Restart services ─────────────────────────
-ynh_systemd_action --service_name="${app}-backend" --action="start" --log_path="$data_dir/logs/backend.log"
-ynh_systemd_action --service_name="${app}-frontend" --action="start"
+# ── Restart services ──────────────────────────────────────────────────────
+ynh_systemd_action --service_name="${app}-backend"  --action=start \
+    --log_path="$data_dir/logs/backend.log" --timeout=60
+ynh_systemd_action --service_name="${app}-frontend" --action=start \
+    --log_path="$data_dir/logs/frontend.log" --timeout=60
 
-ynh_print_info "Delegacje SaaS upgraded successfully!"
+ynh_print_info --message="Upgrade zakończony! https://${domain}"

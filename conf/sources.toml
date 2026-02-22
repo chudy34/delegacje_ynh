@@ -1,15 +1,10 @@
-# YunoHost sources configuration
-# https://yunohost.org/en/packaging_apps_sources
+# sources.toml – zarezerwowane na przyszłe instalacje oparte o release
+# Obecnie skrypt install używa bezpośrednio git clone.
+# Po otagowaniu v1.0 na GitHubie zaktualizuj URL i sha256, i przejdź na ynh_setup_source.
 
 [main]
-# URL do archiwum z kodem źródłowym (GitHub release)
-# Zaktualizuj URL i sha256 przy każdym nowym release
-url = "https://github.com/TWOJ_USERNAME/delegacje/archive/refs/heads/main.tar.gz"
-sha256 = "FILL_IN_AFTER_FIRST_PUSH"
-
-# Pliki do wyodrebnienia (cały projekt trafi do install_dir)
+url = "https://github.com/chudy34/Delegacje/archive/refs/heads/main.tar.gz"
+sha256 = "FILL_IN_AFTER_TAGGING_RELEASE"
 format = "tar.gz"
 extract = true
-
-# Pliki/katalogi do POMINIĘCIA podczas kopiowania do install_dir
 autoupdate.strategy = "latest_github_tag"
